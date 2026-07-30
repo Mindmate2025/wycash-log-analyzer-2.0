@@ -166,6 +166,7 @@
   const typeChecks    = document.getElementById("typeChecks");
   const textSearch    = document.getElementById("textSearch");
   const resetBtn      = document.getElementById("resetBtn");
+  const deselectAllBtn = document.getElementById("deselectAllBtn");
   const resultsList   = document.getElementById("resultsList");
   const summaryChips  = document.getElementById("summaryChips");
   const receiptRange  = document.getElementById("receiptRange");
@@ -527,6 +528,11 @@
     operatorSel.value = "";
     textSearch.value = "";
     typeChecks.querySelectorAll('input[type="checkbox"]:not(:disabled)').forEach((cb) => (cb.checked = true));
+    render();
+  });
+
+  deselectAllBtn.addEventListener("click", () => {
+    typeChecks.querySelectorAll('input[type="checkbox"]:not(:disabled)').forEach((cb) => (cb.checked = false));
     render();
   });
 
