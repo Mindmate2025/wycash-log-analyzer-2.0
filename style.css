@@ -256,6 +256,7 @@ body{
   transition: background .12s ease, color .12s ease;
 }
 .btn-reset:hover{ background: var(--ink); color: var(--paper); }
+.btn-deselect{ margin-top: 8px; }
 
 /* ============================== EMPTY STATE ============================== */
 .empty-state{
