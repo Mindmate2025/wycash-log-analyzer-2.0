@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WYCASH LOG — Analizzatore registro di cassa</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="app">
+
+  <header class="masthead">
+    <div class="masthead-inner">
+      <span class="masthead-mark">WY</span>
+      <div class="masthead-text">
+        <h1>WYCASH LOG</h1>
+        <p>Lettore &amp; filtro del registro di cassa — tutto nel browser, nessun upload su server</p>
+      </div>
+    </div>
+  </header>
+
+  <main class="layout">
+
+    <!-- ===================== PANNELLO CONTROLLI ===================== -->
+    <aside class="panel controls" id="controls">
+
+      <section class="ctrl-block">
+        <h2 class="ctrl-title">01 — File</h2>
+        <label class="dropzone" id="dropzone" for="fileInput">
+          <span class="dropzone-icon" aria-hidden="true">⎘</span>
+          <span class="dropzone-label" id="dropLabel">Trascina qui il file .log / .txt<br><small>oppure clicca per selezionarlo</small></span>
+        </label>
+        <input type="file" id="fileInput" accept=".log,.txt" hidden>
+        <p class="file-meta" id="fileMeta"></p>
+      </section>
+
+      <section class="ctrl-block" id="filterBlock" hidden>
+        <h2 class="ctrl-title">02 — Periodo</h2>
+        <div class="field-row">
+          <label class="field">
+            <span>Dal</span>
+            <input type="date" id="dateFrom">
+          </label>
+          <label class="field">
+            <span>Al</span>
+            <input type="date" id="dateTo">
+          </label>
+        </div>
+
+        <h2 class="ctrl-title">03 — Operatore</h2>
+        <select id="operatorFilter" class="select">
+          <option value="">Tutti gli operatori</option>
+        </select>
+
+        <h2 class="ctrl-title">04 — Tipo operazione</h2>
+        <div class="check-grid" id="typeChecks"><!-- popolato via JS --></div>
+
+        <h2 class="ctrl-title">05 — Cerca prodotto/testo</h2>
+        <input type="text" id="textSearch" class="text-input" placeholder="es. MARGHERITA, sconto…">
+
+        <button class="btn-reset" id="resetBtn" type="button">Azzera filtri</button>
+      </section>
+
+    </aside>
+
+    <!-- ===================== RISULTATI (STILE SCONTRINO) ===================== -->
+    <section class="panel receipt-wrap" id="resultsWrap" hidden>
+      <div class="receipt">
+        <div class="receipt-tear" aria-hidden="true"></div>
+
+        <div class="receipt-head">
+          <div class="receipt-title">REPORT OPERAZIONI</div>
+          <div class="receipt-range" id="receiptRange">—</div>
+        </div>
+
+        <div class="receipt-summary" id="summaryChips"><!-- popolato via JS --></div>
+
+        <div class="coperto-counter" id="coperchioCounter" hidden><!-- popolato via JS --></div>
+
+        <div class="orphan-banner" id="orphanBanner" hidden><!-- popolato via JS --></div>
+
+        <div class="receipt-divider"></div>
+
+        <div class="receipt-list" id="resultsList"><!-- popolato via JS --></div>
+
+        <div class="receipt-divider"></div>
+
+        <div class="receipt-foot">
+          <button class="btn-export" id="exportBtn" type="button">⬇ Esporta CSV filtrato</button>
+          <div class="receipt-total" id="totalCount">0 righe</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel empty-state" id="emptyState">
+      <p>Carica un file di log per iniziare.</p>
+      <p class="empty-sub">Il file resta sul tuo dispositivo: l'analisi avviene interamente nel browser.</p>
+    </section>
+
+  </main>
+
+  <footer class="foot">
+    <span>Formato riconosciuto: WYCASH PRO / stampante fiscale SF20</span>
+  </footer>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
