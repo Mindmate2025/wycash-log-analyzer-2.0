@@ -690,11 +690,18 @@
     const to = dateTo.value;
     if (from && to) {
       const days = [];
-      let d = new Date(from + "T00:00:00");
-      const end = new Date(to + "T00:00:00");
-      while (d <= end) {
-        days.push(d.toISOString().slice(0, 10));
-        d.setDate(d.getDate() + 1);
+      const [fy, fm, fd] = from.split("-").map(Number);
+      const [ty, tm, td] = to.split("-").map(Number);
+      let cur = Date.UTC(fy, fm - 1, fd);
+      const end = Date.UTC(ty, tm - 1, td);
+      const ONE_DAY = 24 * 60 * 60 * 1000;
+      while (cur <= end) {
+        const dt = new Date(cur);
+        const y = dt.getUTCFullYear();
+        const m = String(dt.getUTCMonth() + 1).padStart(2, "0");
+        const d = String(dt.getUTCDate()).padStart(2, "0");
+        days.push(`${y}-${m}-${d}`);
+        cur += ONE_DAY;
       }
       return days;
     }
