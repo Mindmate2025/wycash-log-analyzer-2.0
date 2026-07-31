@@ -163,6 +163,8 @@
   const panoramicaPanel  = document.getElementById("panoramicaPanel");
   const dettagliPanel    = document.getElementById("dettagliPanel");
   const statsGrid        = document.getElementById("statsGrid");
+  const matchStatsTitle   = document.getElementById("matchStatsTitle");
+  const matchStatsGrid    = document.getElementById("matchStatsGrid");
   const chartsContainer  = document.getElementById("chartsContainer");
 
   // ---------------------------------------------------------
@@ -406,25 +408,32 @@
     const toMs = (e) => new Date(`${e.date}T${e.time}`).getTime();
     const tableNum = (t) => (t || "").replace(/TAV/i, "").trim();
 
-    // Passo 1: abbinamento diretto 1:1 (stesso importo, stesso tavolo se disponibile, il più vicino nel tempo)
-    preconti.forEach((p) => {
+    // Passo 1: abbinamento diretto — costruisco tutte le coppie preconto/scontrino
+    // valide (stesso giorno, stesso importo, scontrino non precedente al preconto) e le
+    // assegno partendo dalla più vicina nel tempo. Così, se un tavolo ha più preconti con
+    // lo stesso importo (es. un conto "controllato" prima e ristampato appena prima di
+    // pagare), lo scontrino va al preconto più vicino nel tempo — non al primo processato.
+    const candidatePairs = [];
+    preconti.forEach((p, pidx) => {
       if (typeof p.amount !== "number" || isNaN(p.amount)) { p.matchStatus = "no-amount"; return; }
-      let best = null, bestScore = Infinity;
-      scontrini.forEach((s, idx) => {
-        if (used.has(idx)) return;
+      scontrini.forEach((s, sidx) => {
         if (s.date !== p.date) return;
         if (typeof s.amount !== "number") return;
         if (toMs(s) < toMs(p)) return;
         if (Math.abs(s.amount - p.amount) > 0.05) return;
         const sameTable = p.table && s.table && tableNum(p.table) === s.table;
         const score = (sameTable ? 0 : 1000) + (toMs(s) - toMs(p));
-        if (score < bestScore) { bestScore = score; best = idx; }
+        candidatePairs.push({ pidx, sidx, score });
       });
-      if (best !== null) {
-        used.add(best);
-        p.matchStatus = "diretto";
-        p.linkedScontrini = [scontrini[best]];
-      }
+    });
+    candidatePairs.sort((a, b) => a.score - b.score);
+    const usedPreconti = new Set();
+    candidatePairs.forEach(({ pidx, sidx }) => {
+      if (usedPreconti.has(pidx) || used.has(sidx)) return;
+      usedPreconti.add(pidx);
+      used.add(sidx);
+      preconti[pidx].matchStatus = "diretto";
+      preconti[pidx].linkedScontrini = [scontrini[sidx]];
     });
 
     // Passo 2: conto diviso — somma dei prossimi scontrini non ancora usati sullo stesso tavolo
@@ -454,14 +463,15 @@
     });
 
     // Passo 3: tra chi resta senza scontrino, chi ha un "gemello" — stesso tavolo,
-    // stesso importo, stampato entro 10 minuti — è quasi certamente una RISTAMPA
-    // dello stesso conto (es. copia per il cliente, errore di stampa), non un conto
+    // stesso importo, stampato entro la stessa giornata (fino a 3 ore di distanza) —
+    // è quasi certamente una RISTAMPA dello stesso conto (es. un controllo del conto
+    // ancora aperto, ristampato identico più tardi al momento di pagare), non un conto
     // realmente senza scontrino. Lo segnaliamo separatamente per non generare falsi allarmi.
     preconti.filter((p) => p.matchStatus === "orfano").forEach((p) => {
       const table = tableNum(p.table);
       const sibling = preconti.find((q) => q !== p && tableNum(q.table) === table
         && typeof q.amount === "number" && Math.abs(q.amount - p.amount) <= 0.05
-        && Math.abs(toMs(q) - toMs(p)) <= 10 * 60 * 1000);
+        && Math.abs(toMs(q) - toMs(p)) <= 3 * 60 * 60 * 1000);
       if (sibling) {
         p.matchStatus = "ristampa";
         p.reprintOf = sibling;
@@ -866,6 +876,28 @@
         ${c.sub ? `<div class="stat-sub">${c.sub}</div>` : ""}
       </div>`).join("");
 
+    // --- riepilogo abbinamento preconti/movimenti gestionali → scontrini ---
+    const tuttiIPreconti = preconti.concat(gestionali);
+    if (tuttiIPreconti.length > 0) {
+      matchStatsTitle.textContent = "Abbinamento preconti/movimenti gestionali → scontrini";
+      const contaStato = (s) => tuttiIPreconti.filter((p) => p.matchStatus === s).length;
+      const matchCards = [
+        { label: "✓ Abbinati direttamente", value: nf(contaStato("diretto")) },
+        { label: "✓ Conto diviso", value: nf(contaStato("diviso")) },
+        { label: "↻ Ristampe", value: nf(contaStato("ristampa")) },
+        { label: "↻ Sostituiti (corretti)", value: nf(contaStato("sostituito")) },
+        { label: "⚠ Realmente senza scontrino", value: nf(contaStato("orfano") + contaStato("no-amount")) }
+      ];
+      matchStatsGrid.innerHTML = matchCards.map((c) => `
+        <div class="stat-card">
+          <div class="stat-label">${c.label}</div>
+          <div class="stat-value">${c.value}</div>
+        </div>`).join("");
+    } else {
+      matchStatsTitle.textContent = "";
+      matchStatsGrid.innerHTML = "";
+    }
+
     // --- grafici ---
     const scontriniSeries = [
       { label: "Contanti", color: "#2E8B4A", values: countPerDay(events, days, (e) => e.type === "scontrino_contanti") },
@@ -884,43 +916,4 @@
       chartBlock("Preconti sospesi e Movimenti gestionali per giorno", precontiSeries, buildBarChartSVG(days, precontiSeries, { stacked: false }), preconti.length + gestionali.length === 0) +
       chartBlock("Coperti per giorno (numero)", null, buildBarChartSVG(days, copertiSeries, {}), coperiQty === 0) +
       chartBlock("Elimina riga per giorno", null, buildBarChartSVG(days, eliminaSeries, {}), eliminaRiga.length === 0) +
-      chartBlock("Documenti di annullo per giorno", null, buildBarChartSVG(days, annulloSeries, {}), docAnnullo.length === 0);
-  }
-
-  function formatDateIt(iso) {
-    const [y, mo, d] = iso.split("-");
-    return `${d}/${mo}/${y}`;
-  }
-
-  function escapeHtml(str) {
-    return String(str).replace(/[&<>"']/g, (c) => ({
-      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
-    }[c]));
-  }
-
-  // ---------------------------------------------------------
-  // EXPORT CSV
-  // ---------------------------------------------------------
-  function exportCsv(rows) {
-    const header = ["Data", "Ora", "Operatore", "Tipo", "Importo", "Tavolo", "Sala", "Conto", "Abbinamento", "Dettaglio"];
-    const lines = [header.join(";")];
-    rows.forEach((e) => {
-      const label = TYPE_DEFS[e.type].label;
-      const importo = (typeof e.amount === "number" && !isNaN(e.amount)) ? e.amount.toFixed(2).replace(".", ",") : "";
-      const abbinamento = (e.type === "preconto_sospeso" || e.type === "movimento_gestionale")
-        ? (e.matchStatus === "diretto" ? "Abbinato" : e.matchStatus === "diviso" ? "Abbinato (conto diviso)" : e.matchStatus === "ristampa" ? "Probabile ristampa" : e.matchStatus === "sostituito" ? "Sostituito da preconto corretto" : "NON ABBINATO")
-        : "";
-      lines.push([e.date, e.time, e.operator, label, importo, e.table || "", e.sala || "", e.conto || "", abbinamento, e.detail]
-        .map((v) => `"${String(v).replace(/"/g, '""')}"`)
-        .join(";"));
-    });
-    const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `wycash-report-${dateFrom.value || "tutti"}_${dateTo.value || "tutti"}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-})();
+   
