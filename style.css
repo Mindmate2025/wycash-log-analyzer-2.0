@@ -164,9 +164,10 @@ body{
   word-break: break-all;
 }
 
-.field-row{ display: flex; gap: 10px; }
+.field-row{ display: flex; gap: 10px; min-width: 0; }
 .field{
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -184,6 +185,9 @@ body{
   border-radius: var(--radius);
   background: #fff;
   color: var(--ink);
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .select{
@@ -555,3 +559,4 @@ body{
   font-size: 13.7px;
   color: var(--ink-faint);
   letter-spacing: 0.04em;
+}
