@@ -916,4 +916,43 @@
       chartBlock("Preconti sospesi e Movimenti gestionali per giorno", precontiSeries, buildBarChartSVG(days, precontiSeries, { stacked: false }), preconti.length + gestionali.length === 0) +
       chartBlock("Coperti per giorno (numero)", null, buildBarChartSVG(days, copertiSeries, {}), coperiQty === 0) +
       chartBlock("Elimina riga per giorno", null, buildBarChartSVG(days, eliminaSeries, {}), eliminaRiga.length === 0) +
-   
+      chartBlock("Documenti di annullo per giorno", null, buildBarChartSVG(days, annulloSeries, {}), docAnnullo.length === 0);
+  }
+
+  function formatDateIt(iso) {
+    const [y, mo, d] = iso.split("-");
+    return `${d}/${mo}/${y}`;
+  }
+
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    }[c]));
+  }
+
+  // ---------------------------------------------------------
+  // EXPORT CSV
+  // ---------------------------------------------------------
+  function exportCsv(rows) {
+    const header = ["Data", "Ora", "Operatore", "Tipo", "Importo", "Tavolo", "Sala", "Conto", "Abbinamento", "Dettaglio"];
+    const lines = [header.join(";")];
+    rows.forEach((e) => {
+      const label = TYPE_DEFS[e.type].label;
+      const importo = (typeof e.amount === "number" && !isNaN(e.amount)) ? e.amount.toFixed(2).replace(".", ",") : "";
+      const abbinamento = (e.type === "preconto_sospeso" || e.type === "movimento_gestionale")
+        ? (e.matchStatus === "diretto" ? "Abbinato" : e.matchStatus === "diviso" ? "Abbinato (conto diviso)" : e.matchStatus === "ristampa" ? "Probabile ristampa" : e.matchStatus === "sostituito" ? "Sostituito da preconto corretto" : "NON ABBINATO")
+        : "";
+      lines.push([e.date, e.time, e.operator, label, importo, e.table || "", e.sala || "", e.conto || "", abbinamento, e.detail]
+        .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+        .join(";"));
+    });
+    const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `wycash-report-${dateFrom.value || "tutti"}_${dateTo.value || "tutti"}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+})();
