@@ -33,6 +33,12 @@ Nessuna build, nessun `npm install`: sono 3 file statici.
 
 ## Changelog
 
+**v2.7** — Nella tab **Dettagli**, quando un preconto sospeso/movimento
+gestionale abbinato è seguito immediatamente (senza altri eventi in mezzo)
+dal suo scontrino collegato — anche in caso di conto diviso in più
+scontrini — le righe vengono ora racchiuse in un **riquadro con bordo blu**
+per evidenziare a colpo d'occhio l'abbinamento.
+
 **v2.6** — Corretti due bug nell'abbinamento preconto→scontrino:
 1. L'abbinamento diretto ora assegna ogni scontrino al preconto **più vicino
    nel tempo** tra tutti i candidati validi (prima veniva assegnato al primo
