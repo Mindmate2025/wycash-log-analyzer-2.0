@@ -377,6 +377,91 @@ body{
   padding-left: 6px !important;
 }
 
+/* ============================== TAB / PANORAMICA ============================== */
+.tab-nav{
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+}
+.tab-btn{
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-bottom: none;
+  border-radius: var(--radius) var(--radius) 0 0;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.tab-btn.active{
+  color: var(--ink);
+  background: var(--paper-dim);
+  font-weight: 600;
+}
+.tab-panel{ }
+
+.stats-grid{
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 22px;
+}
+.stat-card{
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  background: #fff;
+}
+.stat-card .stat-label{
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+  margin-bottom: 4px;
+}
+.stat-card .stat-value{
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.stat-card .stat-sub{
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-soft);
+  margin-top: 2px;
+}
+
+.chart-block{
+  margin-bottom: 26px;
+}
+.chart-title{
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+.chart-legend{
+  display: flex;
+  gap: 14px;
+  margin-bottom: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+.chart-legend span{ display: inline-flex; align-items: center; gap: 5px; }
+.chart-legend .sw{ width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+.chart-empty{
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--ink-faint);
+  padding: 20px 0;
+  text-align: center;
+}
+
 .receipt-list{
   font-family: var(--font-mono);
   font-size: 12.5px;
