@@ -165,6 +165,8 @@
   const statsGrid        = document.getElementById("statsGrid");
   const matchStatsTitle   = document.getElementById("matchStatsTitle");
   const matchStatsGrid    = document.getElementById("matchStatsGrid");
+  const averagesTitle     = document.getElementById("averagesTitle");
+  const averagesGrid      = document.getElementById("averagesGrid");
   const chartsContainer  = document.getElementById("chartsContainer");
 
   // ---------------------------------------------------------
@@ -686,29 +688,40 @@
 
       resultsList.innerHTML = Object.keys(byDay).sort().map((date) => {
         const dayEvents = byDay[date];
-        let rows = "";
-        let i = 0;
-        while (i < dayEvents.length) {
-          const e = dayEvents[i];
-          // Se un preconto/movimento gestionale abbinato è seguito, senza nulla in mezzo,
-          // esattamente dal/dai suoi scontrini collegati, li racchiudo in un unico riquadro
-          // evidenziato — così l'abbinamento si vede a colpo d'occhio.
+        const consumed = new Set(); // eventi già resi dentro un gruppo, da non ripetere
+
+        const rows = dayEvents.map((e) => {
+          if (consumed.has(e)) return ""; // già mostrato dentro un gruppo precedente
+
+          // Preconto/movimento gestionale abbinato: lo raggruppo col suo scontrino (o
+          // scontrini, se conto diviso) e con l'eventuale "Coperto" dello stesso istante
+          // (stesso operatore), OVUNQUE si trovino nella giornata — anche con altre
+          // operazioni di altri tavoli in mezzo.
           const linked = (e.type === "preconto_sospeso" || e.type === "movimento_gestionale")
             && (e.matchStatus === "diretto" || e.matchStatus === "diviso")
             && e.linkedScontrini;
+
           if (linked) {
-            const need = e.linkedScontrini.length;
-            const next = dayEvents.slice(i + 1, i + 1 + need);
-            const isAdjacentMatch = next.length === need && next.every((s, idx) => s === e.linkedScontrini[idx]);
-            if (isAdjacentMatch) {
-              rows += `<div class="row-group">${[e, ...next].map(renderRow).join("")}</div>`;
-              i += 1 + need;
-              continue;
-            }
+            const groupRows = [e];
+            e.linkedScontrini.forEach((s) => {
+              groupRows.push(s);
+              consumed.add(s);
+              // il "Coperto" viene generato nello stesso istante esatto del suo scontrino
+              dayEvents.forEach((c) => {
+                if (c.type === "coperto" && !consumed.has(c) && c.time === s.time && c.operator === s.operator) {
+                  groupRows.push(c);
+                  consumed.add(c);
+                }
+              });
+            });
+            groupRows.sort((a, b) => a.time.localeCompare(b.time));
+            consumed.add(e);
+            return `<div class="row-group">${groupRows.map(renderRow).join("")}</div>`;
           }
-          rows += renderRow(e);
-          i += 1;
-        }
+
+          return renderRow(e);
+        }).join("");
+
         return `
           <div class="day-group">
             <div class="day-heading">${formatDateIt(date)} <span class="n">${dayEvents.length} operazioni</span></div>
@@ -922,6 +935,28 @@
       matchStatsTitle.textContent = "";
       matchStatsGrid.innerHTML = "";
     }
+
+    // --- medie giornaliere: scontrini dal banco / dai tavoli, coperti ---
+    const nGiorni = days.length || 1;
+    const tuttiScontrini = contanti.concat(elettronico);
+    const scontriniBanco = tuttiScontrini.filter((s) => !s.table);
+    const scontriniTavoli = tuttiScontrini.filter((s) => !!s.table);
+    const sumAmt = (arr) => arr.reduce((s, e) => s + (e.amount || 0), 0);
+
+    averagesTitle.textContent = `Medie giornaliere nel periodo (${nGiorni} giorni)`;
+    const avgCards = [
+      { label: "Scontrini Banco — media/giorno (n.)", value: (scontriniBanco.length / nGiorni).toFixed(1) },
+      { label: "Scontrini Banco — media/giorno (€)", value: eur(sumAmt(scontriniBanco) / nGiorni) },
+      { label: "Scontrini Tavoli — media/giorno (n.)", value: (scontriniTavoli.length / nGiorni).toFixed(1) },
+      { label: "Scontrini Tavoli — media/giorno (€)", value: eur(sumAmt(scontriniTavoli) / nGiorni) },
+      { label: "Coperti — media/giorno (n.)", value: (coperiQty / nGiorni).toFixed(1) },
+      { label: "Coperti — media/giorno (€)", value: eur(coperiImporto / nGiorni) }
+    ];
+    averagesGrid.innerHTML = avgCards.map((c) => `
+      <div class="stat-card">
+        <div class="stat-label">${c.label}</div>
+        <div class="stat-value stat-value-sm">${c.value}</div>
+      </div>`).join("");
 
     // --- grafici ---
     const scontriniSeries = [
