@@ -18,22 +18,22 @@
   const TYPE_DEFS = {
     preconto_sospeso: {
       label: "Preconto sospeso",
-      color: "#2F5D53",
+      color: "#2A5DAA",
       synthetic: true // ricostruito dal blocco di stampa "DOLLINO...m/"
     },
     movimento_gestionale: {
       label: "Movimento gestionale (non fiscale)",
-      color: "#3E6B8A",
+      color: "#6B4E8A",
       synthetic: true // stesso blocco "DOLLINO...m/" ma con Tavolo/Sala = BANCO (vendita al banco, non un tavolo)
     },
     scontrino_contanti: {
       label: "Scontrino — Pagamento contanti",
-      color: "#201D18",
+      color: "#2E8B4A",
       synthetic: true // generato nel secondo passaggio, dal comando 5/1/<importo>
     },
     scontrino_elettronico: {
       label: "Scontrino — Pagamento elettronico",
-      color: "#3E6B8A",
+      color: "#C2186B",
       synthetic: true // generato nel secondo passaggio, dal comando 5/4/<importo>
     },
     scontrino_altro: {
@@ -717,8 +717,8 @@
 
   // Grafico a barre SVG (raggruppate o impilate). series: [{ label, color, values: {data: numero} }]
   function buildBarChartSVG(days, series, opts = {}) {
-    const width = 900, height = 200;
-    const padL = 38, padB = 22, padT = 8, padR = 8;
+    const width = 1100, height = 340;
+    const padL = 46, padB = 30, padT = 12, padR = 12;
     const plotW = width - padL - padR;
     const plotH = height - padT - padB;
     const stacked = !!opts.stacked;
@@ -767,7 +767,7 @@
       const val = (maxVal * t) / ticks;
       const y = padT + plotH - (val / maxVal) * plotH;
       grid += `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${width - padR}" y2="${y.toFixed(1)}" stroke="#D8D0BC" stroke-width="1"/>`;
-      grid += `<text x="${padL - 5}" y="${(y + 3).toFixed(1)}" text-anchor="end" font-size="9" fill="#6B6558" font-family="monospace">${Math.round(val)}</text>`;
+      grid += `<text x="${padL - 5}" y="${(y + 3).toFixed(1)}" text-anchor="end" font-size="15" fill="#6B6558" font-family="monospace">${Math.round(val)}</text>`;
     }
 
     // Etichette asse X (una ogni N giorni per non affollare)
@@ -777,10 +777,10 @@
       if (i % labelEvery !== 0 && i !== days.length - 1) return;
       const x = padL + i * groupW + groupW / 2;
       const [, mo, da] = d.split("-");
-      labels += `<text x="${x.toFixed(1)}" y="${height - 6}" text-anchor="middle" font-size="9" fill="#6B6558" font-family="monospace">${da}/${mo}</text>`;
+      labels += `<text x="${x.toFixed(1)}" y="${height - 6}" text-anchor="middle" font-size="15" fill="#6B6558" font-family="monospace">${da}/${mo}</text>`;
     });
 
-    return `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" style="width:100%;height:180px;display:block">${grid}${bars}${labels}</svg>`;
+    return `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" style="width:100%;height:320px;display:block">${grid}${bars}${labels}</svg>`;
   }
 
   function chartBlock(title, legendItems, svg, isEmpty) {
@@ -833,12 +833,12 @@
 
     // --- grafici ---
     const scontriniSeries = [
-      { label: "Contanti", color: "#201D18", values: countPerDay(events, days, (e) => e.type === "scontrino_contanti") },
-      { label: "Elettronico", color: "#3E6B8A", values: countPerDay(events, days, (e) => e.type === "scontrino_elettronico") }
+      { label: "Contanti", color: "#2E8B4A", values: countPerDay(events, days, (e) => e.type === "scontrino_contanti") },
+      { label: "Elettronico", color: "#C2186B", values: countPerDay(events, days, (e) => e.type === "scontrino_elettronico") }
     ];
     const precontiSeries = [
-      { label: "Preconto sospeso", color: "#2F5D53", values: countPerDay(events, days, (e) => e.type === "preconto_sospeso") },
-      { label: "Movimento gestionale", color: "#3E6B8A", values: countPerDay(events, days, (e) => e.type === "movimento_gestionale") }
+      { label: "Preconto sospeso", color: "#2A5DAA", values: countPerDay(events, days, (e) => e.type === "preconto_sospeso") },
+      { label: "Movimento gestionale", color: "#6B4E8A", values: countPerDay(events, days, (e) => e.type === "movimento_gestionale") }
     ];
     const copertiSeries = [{ label: "Coperti", color: "#B08A3E", values: countPerDay(events, days, (e) => e.type === "coperto") }];
     const eliminaSeries = [{ label: "Elimina riga", color: "#A3231C", values: countPerDay(events, days, (e) => e.type === "elimina_riga") }];
