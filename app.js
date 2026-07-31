@@ -12,16 +12,10 @@
   // ---------------------------------------------------------
   // 1) DEFINIZIONE DEI TIPI DI OPERAZIONE RICONOSCIUTI
   //    ogni tipo "semplice" viene rilevato riga per riga.
-  //    "scontrino_fiscale" è invece ricostruito dalla coppia
+  //    "scontrino_contanti"/"scontrino_elettronico" sono invece ricostruiti dalla coppia
   //    di comandi W/...X/ verso la stampante fiscale (SF20).
   // ---------------------------------------------------------
   const TYPE_DEFS = {
-    subtotale: {
-      label: "Subtotale (tasto)",
-      color: "#8C8672",
-      re: /CLICCATO TASTO - SUBTOTALE/i,
-      detail: () => "Calcolo subtotale richiesto"
-    },
     preconto_sospeso: {
       label: "Preconto sospeso",
       color: "#2F5D53",
@@ -32,16 +26,20 @@
       color: "#3E6B8A",
       synthetic: true // stesso blocco "DOLLINO...m/" ma con Tavolo/Sala = BANCO (vendita al banco, non un tavolo)
     },
-    scontrino_contanti_diretto: {
-      label: "Scontrino contanti (diretto)",
+    scontrino_contanti: {
+      label: "Scontrino — Pagamento contanti",
       color: "#201D18",
-      re: /CLICCATO TASTO - SCONTRINO CONTANTI/i,
-      detail: () => "Contanti — tasto diretto"
+      synthetic: true // generato nel secondo passaggio, dal comando 5/1/<importo>
     },
-    scontrino_fiscale: {
-      label: "Scontrino fiscale",
-      color: "#201D18",
-      synthetic: true // generato nel secondo passaggio, non da regex riga-per-riga
+    scontrino_elettronico: {
+      label: "Scontrino — Pagamento elettronico",
+      color: "#3E6B8A",
+      synthetic: true // generato nel secondo passaggio, dal comando 5/4/<importo>
+    },
+    scontrino_altro: {
+      label: "Scontrino — Metodo non determinato",
+      color: "#8C8672",
+      synthetic: true // metodo di pagamento non riconosciuto/mancante nel log
     },
     coperto: {
       label: "Coperto",
@@ -59,12 +57,6 @@
       color: "#C24B3F",
       re: /CLICCATO TASTO MODIFICA RIGA\s+(.*)$/i,
       detail: (m) => m[1].trim() || "(prodotto non specificato)"
-    },
-    dividi_conto: {
-      label: "Conto diviso",
-      color: "#6B6558",
-      re: /CLICCATO TASTO - DIVIDO CONTO/i,
-      detail: () => "Divisione conto"
     },
     chiusura_fiscale: {
       label: "Chiusura fiscale (Z)",
@@ -85,12 +77,6 @@
       // Comando reale alla stampante fiscale: +/<campo>/<ggmmaaaa>/<n.documento>/<campo>/<crc>
       re: /SENT COMMAND \+\/(\d+)\/(\d{2})(\d{2})(\d{4})\/(\d+)/,
       detail: (m) => `Annullo documento fiscale · Rif. scontrino n. ${m[5]} del ${m[2]}/${m[3]}/${m[4]}`
-    },
-    sconto: {
-      label: "Sconto applicato",
-      color: "#9C7A2E",
-      re: /APPLICATO SCONTO (PERCENTUALE|IN EURO) SUL TOTALE\s*([\d.,]+)/i,
-      detail: (m) => `${m[1] === "PERCENTUALE" ? "Percentuale" : "In euro"} — ${m[2]}`
     },
     possibile_annullo: {
       label: "Possibile annullo/storno",
@@ -172,6 +158,25 @@
   const receiptRange  = document.getElementById("receiptRange");
   const totalCount    = document.getElementById("totalCount");
   const exportBtn     = document.getElementById("exportBtn");
+  const tabBtnPanoramica = document.getElementById("tabBtnPanoramica");
+  const tabBtnDettagli   = document.getElementById("tabBtnDettagli");
+  const panoramicaPanel  = document.getElementById("panoramicaPanel");
+  const dettagliPanel    = document.getElementById("dettagliPanel");
+  const statsGrid        = document.getElementById("statsGrid");
+  const chartsContainer  = document.getElementById("chartsContainer");
+
+  // ---------------------------------------------------------
+  // TAB Panoramica / Dettagli
+  // ---------------------------------------------------------
+  [tabBtnPanoramica, tabBtnDettagli].forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const isPanoramica = btn === tabBtnPanoramica;
+      tabBtnPanoramica.classList.toggle("active", isPanoramica);
+      tabBtnDettagli.classList.toggle("active", !isPanoramica);
+      panoramicaPanel.hidden = !isPanoramica;
+      dettagliPanel.hidden = isPanoramica;
+    });
+  });
 
   // ---------------------------------------------------------
   // CARICAMENTO FILE
@@ -308,8 +313,15 @@
           : (lastPayment ? lastPayment.label : null);
         const amount = pendingPayment ? pendingPayment.amount : null;
 
+        let scontrinoType = "scontrino_altro";
+        if (pendingPayment && pendingPayment.code === "1") scontrinoType = "scontrino_contanti";
+        else if (pendingPayment && pendingPayment.code === "4") scontrinoType = "scontrino_elettronico";
+        else if (!pendingPayment && lastPayment) {
+          scontrinoType = /carta/i.test(lastPayment.label) ? "scontrino_elettronico" : "scontrino_contanti";
+        }
+
         allEvents.push({
-          date, time, type: "scontrino_fiscale",
+          date, time, type: scontrinoType,
           operator: currentOperator,
           amount,
           table: pendingTable ? pendingTable.table : null,
@@ -365,7 +377,7 @@
   // ---------------------------------------------------------
   function attachChiusuraTotals(events) {
     const totaliPerData = {};
-    events.filter((e) => e.type === "scontrino_fiscale" && typeof e.amount === "number")
+    events.filter((e) => e.type.startsWith("scontrino_") && typeof e.amount === "number")
       .forEach((e) => { totaliPerData[e.date] = (totaliPerData[e.date] || 0) + e.amount; });
 
     events.filter((e) => e.type === "chiusura_fiscale").forEach((e) => {
@@ -388,7 +400,7 @@
     const preconti = events
       .filter((e) => e.type === "preconto_sospeso" || e.type === "movimento_gestionale")
       .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
-    const scontrini = events.filter((e) => e.type === "scontrino_fiscale");
+    const scontrini = events.filter((e) => e.type.startsWith("scontrino_"));
     const used = new Set();
 
     const toMs = (e) => new Date(`${e.date}T${e.time}`).getTime();
@@ -558,8 +570,22 @@
     });
   }
 
+  // Come getFiltered(), ma ignora le checkbox "Tipo operazione" e la ricerca testo:
+  // la Panoramica deve mostrare sempre TUTTE le categorie per il periodo scelto.
+  function getOverviewFiltered() {
+    const from = dateFrom.value || "0000-00-00";
+    const to = dateTo.value || "9999-99-99";
+    const op = operatorSel.value;
+    return allEvents.filter((e) => {
+      if (e.date < from || e.date > to) return false;
+      if (op && e.operator !== op) return false;
+      return true;
+    });
+  }
+
   function render() {
     const filtered = getFiltered();
+    renderPanoramica(getOverviewFiltered());
 
     // --- intestazione periodo ---
     receiptRange.textContent = filtered.length
@@ -629,7 +655,7 @@
     }
 
     const incassato = filtered
-      .filter((e) => e.type === "scontrino_fiscale" && typeof e.amount === "number" && !isNaN(e.amount))
+      .filter((e) => e.type.startsWith("scontrino_") && typeof e.amount === "number" && !isNaN(e.amount))
       .reduce((sum, e) => sum + e.amount, 0);
     const incassatoTxt = incassato > 0
       ? ` · incassato € ${incassato.toFixed(2).replace(".", ",")}`
@@ -654,6 +680,176 @@
     totalCount.textContent = `${filtered.length.toLocaleString("it-IT")} righe${incassatoTxt}`;
     exportBtn.disabled = filtered.length === 0;
     exportBtn.onclick = () => exportCsv(filtered);
+  }
+
+  // ---------------------------------------------------------
+  // PANORAMICA: KPI + grafici (SVG puro, nessuna libreria)
+  // ---------------------------------------------------------
+  function enumerateDays(events) {
+    const from = dateFrom.value;
+    const to = dateTo.value;
+    if (from && to) {
+      const days = [];
+      let d = new Date(from + "T00:00:00");
+      const end = new Date(to + "T00:00:00");
+      while (d <= end) {
+        days.push(d.toISOString().slice(0, 10));
+        d.setDate(d.getDate() + 1);
+      }
+      return days;
+    }
+    return [...new Set(events.map((e) => e.date))].sort();
+  }
+
+  function countPerDay(events, days, typeFilter) {
+    const map = {};
+    days.forEach((d) => (map[d] = 0));
+    events.forEach((e) => { if (typeFilter(e) && map[e.date] !== undefined) map[e.date]++; });
+    return map;
+  }
+
+  function sumPerDay(events, days, typeFilter, field) {
+    const map = {};
+    days.forEach((d) => (map[d] = 0));
+    events.forEach((e) => { if (typeFilter(e) && map[e.date] !== undefined) map[e.date] += (e[field] || 0); });
+    return map;
+  }
+
+  // Grafico a barre SVG (raggruppate o impilate). series: [{ label, color, values: {data: numero} }]
+  function buildBarChartSVG(days, series, opts = {}) {
+    const width = 900, height = 200;
+    const padL = 38, padB = 22, padT = 8, padR = 8;
+    const plotW = width - padL - padR;
+    const plotH = height - padT - padB;
+    const stacked = !!opts.stacked;
+
+    const dayMax = (d) => stacked
+      ? series.reduce((s, ser) => s + (ser.values[d] || 0), 0)
+      : Math.max(...series.map((ser) => ser.values[d] || 0));
+    const maxVal = Math.max(1, ...days.map(dayMax));
+
+    const groupW = plotW / Math.max(1, days.length);
+    const barGap = groupW > 6 ? 1.5 : 0.5;
+    const barW = stacked
+      ? Math.max(0.5, groupW - barGap * 2)
+      : Math.max(0.5, (groupW - barGap * (series.length + 1)) / series.length);
+
+    let bars = "";
+    days.forEach((d, i) => {
+      const groupX = padL + i * groupW;
+      if (stacked) {
+        let yCursor = padT + plotH;
+        series.forEach((ser) => {
+          const val = ser.values[d] || 0;
+          const h = (val / maxVal) * plotH;
+          yCursor -= h;
+          if (val > 0) {
+            bars += `<rect x="${(groupX + barGap).toFixed(1)}" y="${yCursor.toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" fill="${ser.color}"><title>${d} — ${ser.label}: ${val.toLocaleString("it-IT")}</title></rect>`;
+          }
+        });
+      } else {
+        series.forEach((ser, si) => {
+          const val = ser.values[d] || 0;
+          const h = (val / maxVal) * plotH;
+          const x = groupX + barGap + si * (barW + barGap);
+          const y = padT + plotH - h;
+          if (val > 0) {
+            bars += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" fill="${ser.color}"><title>${d} — ${ser.label}: ${val.toLocaleString("it-IT")}</title></rect>`;
+          }
+        });
+      }
+    });
+
+    // Griglia + etichette asse Y
+    let grid = "";
+    const ticks = 4;
+    for (let t = 0; t <= ticks; t++) {
+      const val = (maxVal * t) / ticks;
+      const y = padT + plotH - (val / maxVal) * plotH;
+      grid += `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${width - padR}" y2="${y.toFixed(1)}" stroke="#D8D0BC" stroke-width="1"/>`;
+      grid += `<text x="${padL - 5}" y="${(y + 3).toFixed(1)}" text-anchor="end" font-size="9" fill="#6B6558" font-family="monospace">${Math.round(val)}</text>`;
+    }
+
+    // Etichette asse X (una ogni N giorni per non affollare)
+    const labelEvery = Math.max(1, Math.ceil(days.length / 12));
+    let labels = "";
+    days.forEach((d, i) => {
+      if (i % labelEvery !== 0 && i !== days.length - 1) return;
+      const x = padL + i * groupW + groupW / 2;
+      const [, mo, da] = d.split("-");
+      labels += `<text x="${x.toFixed(1)}" y="${height - 6}" text-anchor="middle" font-size="9" fill="#6B6558" font-family="monospace">${da}/${mo}</text>`;
+    });
+
+    return `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" style="width:100%;height:180px;display:block">${grid}${bars}${labels}</svg>`;
+  }
+
+  function chartBlock(title, legendItems, svg, isEmpty) {
+    const legend = legendItems
+      ? `<div class="chart-legend">${legendItems.map((l) => `<span><span class="sw" style="background:${l.color}"></span>${l.label}</span>`).join("")}</div>`
+      : "";
+    return `<div class="chart-block">
+      <div class="chart-title">${title}</div>
+      ${legend}
+      ${isEmpty ? `<div class="chart-empty">Nessuna occorrenza nel periodo selezionato</div>` : svg}
+    </div>`;
+  }
+
+  function renderPanoramica(events) {
+    const days = enumerateDays(events);
+
+    const nf = (n) => n.toLocaleString("it-IT");
+    const eur = (n) => `€ ${n.toFixed(2).replace(".", ",")}`;
+
+    const preconti = events.filter((e) => e.type === "preconto_sospeso");
+    const gestionali = events.filter((e) => e.type === "movimento_gestionale");
+    const contanti = events.filter((e) => e.type === "scontrino_contanti");
+    const elettronico = events.filter((e) => e.type === "scontrino_elettronico");
+    const coperti = events.filter((e) => e.type === "coperto");
+    const eliminaRiga = events.filter((e) => e.type === "elimina_riga");
+    const docAnnullo = events.filter((e) => e.type === "documento_annullo");
+
+    const incassatoContanti = contanti.reduce((s, e) => s + (e.amount || 0), 0);
+    const incassatoElettronico = elettronico.reduce((s, e) => s + (e.amount || 0), 0);
+    const coperiQty = coperti.reduce((s, e) => s + (e.qty || 0), 0);
+    const coperiImporto = coperti.reduce((s, e) => s + (e.amount || 0), 0);
+
+    // --- KPI card ---
+    const cards = [
+      { label: "Preconti sospesi", value: nf(preconti.length) },
+      { label: "Movimenti gestionali", value: nf(gestionali.length) },
+      { label: "Scontrini totali", value: nf(contanti.length + elettronico.length), sub: eur(incassatoContanti + incassatoElettronico) },
+      { label: "— di cui contanti", value: nf(contanti.length), sub: eur(incassatoContanti) },
+      { label: "— di cui elettronico", value: nf(elettronico.length), sub: eur(incassatoElettronico) },
+      { label: "Coperti", value: nf(coperiQty), sub: eur(coperiImporto) },
+      { label: "Elimina riga", value: nf(eliminaRiga.length) },
+      { label: "Documenti di annullo", value: nf(docAnnullo.length) }
+    ];
+    statsGrid.innerHTML = cards.map((c) => `
+      <div class="stat-card">
+        <div class="stat-label">${c.label}</div>
+        <div class="stat-value">${c.value}</div>
+        ${c.sub ? `<div class="stat-sub">${c.sub}</div>` : ""}
+      </div>`).join("");
+
+    // --- grafici ---
+    const scontriniSeries = [
+      { label: "Contanti", color: "#201D18", values: countPerDay(events, days, (e) => e.type === "scontrino_contanti") },
+      { label: "Elettronico", color: "#3E6B8A", values: countPerDay(events, days, (e) => e.type === "scontrino_elettronico") }
+    ];
+    const precontiSeries = [
+      { label: "Preconto sospeso", color: "#2F5D53", values: countPerDay(events, days, (e) => e.type === "preconto_sospeso") },
+      { label: "Movimento gestionale", color: "#3E6B8A", values: countPerDay(events, days, (e) => e.type === "movimento_gestionale") }
+    ];
+    const copertiSeries = [{ label: "Coperti", color: "#B08A3E", values: countPerDay(events, days, (e) => e.type === "coperto") }];
+    const eliminaSeries = [{ label: "Elimina riga", color: "#A3231C", values: countPerDay(events, days, (e) => e.type === "elimina_riga") }];
+    const annulloSeries = [{ label: "Documenti di annullo", color: "#B02A2A", values: countPerDay(events, days, (e) => e.type === "documento_annullo") }];
+
+    chartsContainer.innerHTML =
+      chartBlock("Scontrini fiscali per giorno (n. scontrini) — Contanti vs Elettronico", scontriniSeries, buildBarChartSVG(days, scontriniSeries, { stacked: true }), contanti.length + elettronico.length === 0) +
+      chartBlock("Preconti sospesi e Movimenti gestionali per giorno", precontiSeries, buildBarChartSVG(days, precontiSeries, { stacked: false }), preconti.length + gestionali.length === 0) +
+      chartBlock("Coperti per giorno (numero)", null, buildBarChartSVG(days, copertiSeries, {}), coperiQty === 0) +
+      chartBlock("Elimina riga per giorno", null, buildBarChartSVG(days, eliminaSeries, {}), eliminaRiga.length === 0) +
+      chartBlock("Documenti di annullo per giorno", null, buildBarChartSVG(days, annulloSeries, {}), docAnnullo.length === 0);
   }
 
   function formatDateIt(iso) {
