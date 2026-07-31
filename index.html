@@ -86,13 +86,25 @@
 
         <div class="receipt-divider"></div>
 
-        <div class="receipt-list" id="resultsList"><!-- popolato via JS --></div>
+        <div class="tab-nav">
+          <button class="tab-btn" id="tabBtnPanoramica" type="button" data-tab="panoramica">Panoramica</button>
+          <button class="tab-btn active" id="tabBtnDettagli" type="button" data-tab="dettagli">Dettagli</button>
+        </div>
 
-        <div class="receipt-divider"></div>
+        <div class="tab-panel" id="panoramicaPanel" hidden>
+          <div class="stats-grid" id="statsGrid"><!-- popolato via JS --></div>
+          <div id="chartsContainer"><!-- popolato via JS --></div>
+        </div>
 
-        <div class="receipt-foot">
-          <button class="btn-export" id="exportBtn" type="button">⬇ Esporta CSV filtrato</button>
-          <div class="receipt-total" id="totalCount">0 righe</div>
+        <div class="tab-panel" id="dettagliPanel">
+          <div class="receipt-list" id="resultsList"><!-- popolato via JS --></div>
+
+          <div class="receipt-divider"></div>
+
+          <div class="receipt-foot">
+            <button class="btn-export" id="exportBtn" type="button">⬇ Esporta CSV filtrato</button>
+            <div class="receipt-total" id="totalCount">0 righe</div>
+          </div>
         </div>
       </div>
     </section>
