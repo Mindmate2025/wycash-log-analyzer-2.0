@@ -33,6 +33,22 @@ Nessuna build, nessun `npm install`: sono 3 file statici.
 
 ## Changelog
 
+**v2.9** — Il raggruppamento visivo preconto↔scontrino (riquadro blu) ora
+funziona **anche quando ci sono altre operazioni in mezzo** (di altri
+tavoli, elimina/modifica riga, ecc.) — prima serviva l'adiacenza stretta.
+Include anche l'eventuale "Coperto" generato nello stesso istante dello
+scontrino. Verificato: 1.227 gruppi su tutto il periodo, combaciante
+esattamente con "abbinati direttamente + conto diviso".
+
+**v2.8** — Aggiunta nella tab **Panoramica** una sezione **"Medie
+giornaliere"** per il periodo selezionato (usa le date Dal/Al già
+impostate nei filtri): media giornaliera di scontrini emessi **al banco**
+e **ai tavoli** (sia come numero che come importo), e media giornaliera dei
+**coperti** (numero e importo). La distinzione banco/tavoli si basa
+sull'informazione del tavolo stampata sullo scontrino: se presente è un
+tavolo, se assente (verificato: mai presente per le vendite dirette al
+banco) è banco.
+
 **v2.7** — Nella tab **Dettagli**, quando un preconto sospeso/movimento
 gestionale abbinato è seguito immediatamente (senza altri eventi in mezzo)
 dal suo scontrino collegato — anche in caso di conto diviso in più
