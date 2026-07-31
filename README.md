@@ -33,6 +33,25 @@ Nessuna build, nessun `npm install`: sono 3 file statici.
 
 ## Changelog
 
+**v2.6** — Corretti due bug nell'abbinamento preconto→scontrino:
+1. L'abbinamento diretto ora assegna ogni scontrino al preconto **più vicino
+   nel tempo** tra tutti i candidati validi (prima veniva assegnato al primo
+   preconto processato in ordine cronologico, anche se un altro preconto
+   dello stesso tavolo/importo era molto più vicino al pagamento — causando
+   falsi "senza scontrino associato" sul preconto sbagliato)
+2. La finestra di rilevamento "ristampa" passa da 10 minuti a 3 ore, per
+   coprire i conti rimasti aperti più a lungo prima del pagamento effettivo
+Effetto sull'intero periodo: i preconti realmente senza scontrino scendono
+da 24 a **16**.
+
+**v2.5** — Aggiunte nella tab **Panoramica** le card di riepilogo
+dell'abbinamento preconti/movimenti gestionali → scontrini: quanti abbinati
+direttamente, quanti come conto diviso, quante ristampe, quanti sostituiti
+(corretti) e quanti restano realmente senza scontrino — per capire subito
+perché il numero di preconti non coincide 1:1 con quello degli scontrini
+(ristampe e sostituiti condividono lo scontrino di un "gemello", quindi non
+generano un nuovo scontrino proprio).
+
 **v2.4** — Aggiunto il rilevamento dei preconti **sostituiti da una
 correzione**: se sullo stesso tavolo un preconto viene seguito entro 30
 minuti da un altro preconto (importo diverso) che invece risulta
