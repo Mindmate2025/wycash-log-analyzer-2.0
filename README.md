@@ -33,6 +33,11 @@ Nessuna build, nessun `npm install`: sono 3 file statici.
 
 ## Changelog
 
+**v3.0** — Aggiunte 3 card derivate nella sezione "Medie giornaliere":
+**Incasso medio totale** (banco + tavoli, al giorno), **Scontrino medio**
+(incasso totale ÷ numero scontrini, banco+tavoli insieme) e **Spesa media a
+persona** (incasso dai tavoli ÷ numero coperti — include il coperto stesso).
+
 **v2.9** — Il raggruppamento visivo preconto↔scontrino (riquadro blu) ora
 funziona **anche quando ci sono altre operazioni in mezzo** (di altri
 tavoli, elimina/modifica riga, ecc.) — prima serviva l'adiacenza stretta.
