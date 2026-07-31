@@ -62,7 +62,7 @@ body{
 .masthead-mark{
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 15px;
+  font-size: 19.5px;
   letter-spacing: 0.04em;
   border: 2px solid var(--paper);
   color: var(--paper);
@@ -73,13 +73,13 @@ body{
 .masthead-text h1{
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: clamp(20px, 2.4vw, 26px);
+  font-size: clamp(26px, 3.1vw, 34px);
   letter-spacing: 0.06em;
   margin: 0;
 }
 .masthead-text p{
   margin: 2px 0 0;
-  font-size: 12.5px;
+  font-size: 16.3px;
   color: rgba(247,243,233,0.65);
 }
 
@@ -121,7 +121,7 @@ body{
 
 .ctrl-title{
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 14.3px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -145,20 +145,20 @@ body{
   background: rgba(163,35,28,0.04);
 }
 .dropzone-icon{
-  font-size: 22px;
+  font-size: 28.6px;
   color: var(--ink-soft);
   flex-shrink: 0;
 }
 .dropzone-label{
-  font-size: 13px;
+  font-size: 16.9px;
   line-height: 1.4;
   color: var(--ink);
 }
-.dropzone-label small{ color: var(--ink-soft); font-size: 11.5px; }
+.dropzone-label small{ color: var(--ink-soft); font-size: 15px; }
 
 .file-meta{
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: 15px;
   color: var(--ink-soft);
   margin: 10px 2px 0;
   word-break: break-all;
@@ -170,7 +170,7 @@ body{
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: 11px;
+  font-size: 14.3px;
   color: var(--ink-soft);
   font-family: var(--font-mono);
   text-transform: uppercase;
@@ -178,7 +178,7 @@ body{
 }
 .field input[type="date"]{
   font-family: var(--font-body);
-  font-size: 13px;
+  font-size: 16.9px;
   padding: 8px 8px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -193,7 +193,7 @@ body{
   border-radius: var(--radius);
   background: #fff;
   color: var(--ink);
-  font-size: 13px;
+  font-size: 16.9px;
   font-family: var(--font-body);
 }
 
@@ -211,7 +211,7 @@ body{
   border-radius: var(--radius);
   background: #fff;
   cursor: pointer;
-  font-size: 12.5px;
+  font-size: 16.3px;
   user-select: none;
   transition: border-color .12s ease, background .12s ease;
 }
@@ -224,7 +224,7 @@ body{
 .check-item .count{
   margin-left: auto;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 14.3px;
   color: var(--ink-soft);
 }
 .check-item.disabled{ opacity: 0.35; cursor: not-allowed; }
@@ -234,7 +234,7 @@ body{
   padding: 9px 10px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  font-size: 13px;
+  font-size: 16.9px;
   font-family: var(--font-body);
   background: #fff;
   color: var(--ink);
@@ -249,7 +249,7 @@ body{
   border-radius: var(--radius);
   color: var(--ink);
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: 15px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   cursor: pointer;
@@ -264,8 +264,8 @@ body{
   text-align: center;
   color: var(--ink-soft);
 }
-.empty-state p{ margin: 0 0 6px; font-size: 15px; }
-.empty-sub{ font-size: 12.5px !important; color: var(--ink-faint); }
+.empty-state p{ margin: 0 0 6px; font-size: 19.5px; }
+.empty-sub{ font-size: 16.3px !important; color: var(--ink-faint); }
 
 /* ============================== RECEIPT (RISULTATI) ============================== */
 .receipt-wrap{ background: transparent; border: none; }
@@ -299,12 +299,12 @@ body{
 .receipt-title{
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: 18px;
+  font-size: 23.4px;
   letter-spacing: 0.08em;
 }
 .receipt-range{
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 15.6px;
   color: var(--ink-soft);
 }
 
@@ -316,7 +316,7 @@ body{
 }
 .chip{
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: 15px;
   padding: 6px 10px;
   border-radius: 999px;
   border: 1px solid var(--line);
@@ -334,7 +334,7 @@ body{
   background: rgba(176,138,62,0.12);
   border-color: #B08A3E;
   color: var(--ink);
-  font-size: 12.5px;
+  font-size: 16.3px;
   padding: 8px 12px;
 }
 .chip-coperto b{ color: #8A6A2E; }
@@ -352,7 +352,7 @@ body{
   background: rgba(163,35,28,0.06);
   padding: 12px 14px;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 15.6px;
 }
 .orphan-title{
   font-weight: 600;
@@ -390,7 +390,7 @@ body{
   border-bottom: none;
   border-radius: var(--radius) var(--radius) 0 0;
   font-family: var(--font-mono);
-  font-size: 12.5px;
+  font-size: 16.3px;
   color: var(--ink-soft);
   cursor: pointer;
 }
@@ -415,7 +415,7 @@ body{
 }
 .stat-card .stat-label{
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 13.7px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--ink-soft);
@@ -423,40 +423,40 @@ body{
 }
 .stat-card .stat-value{
   font-family: var(--font-display);
-  font-size: 22px;
+  font-size: 28.6px;
   font-weight: 600;
   color: var(--ink);
 }
 .stat-card .stat-sub{
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 14.3px;
   color: var(--ink-soft);
   margin-top: 2px;
 }
 
 .chart-block{
-  margin-bottom: 26px;
+  margin-bottom: 40px;
 }
 .chart-title{
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 19.5px;
   font-weight: 600;
   color: var(--ink);
-  margin-bottom: 4px;
+  margin-bottom: 8px;
 }
 .chart-legend{
   display: flex;
-  gap: 14px;
-  margin-bottom: 6px;
+  gap: 18px;
+  margin-bottom: 10px;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 16.9px;
   color: var(--ink-soft);
 }
-.chart-legend span{ display: inline-flex; align-items: center; gap: 5px; }
-.chart-legend .sw{ width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+.chart-legend span{ display: inline-flex; align-items: center; gap: 6px; }
+.chart-legend .sw{ width: 11px; height: 11px; border-radius: 2px; display: inline-block; }
 .chart-empty{
   font-family: var(--font-body);
-  font-size: 13px;
+  font-size: 16.9px;
   color: var(--ink-faint);
   padding: 20px 0;
   text-align: center;
@@ -464,7 +464,7 @@ body{
 
 .receipt-list{
   font-family: var(--font-mono);
-  font-size: 12.5px;
+  font-size: 16.3px;
   max-height: 62vh;
   overflow-y: auto;
 }
@@ -472,7 +472,7 @@ body{
 .day-group + .day-group{ margin-top: 18px; }
 .day-heading{
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: 15px;
   font-weight: 600;
   letter-spacing: 0.05em;
   color: var(--ink);
@@ -487,7 +487,7 @@ body{
 
 .row{
   display: grid;
-  grid-template-columns: 74px 20px 1fr;
+  grid-template-columns: 92px 24px 1fr;
   gap: 10px;
   align-items: baseline;
   padding: 5px 4px;
@@ -502,10 +502,10 @@ body{
 }
 .row .desc b{ font-weight: 600; }
 .row .desc b.amount{ color: var(--accent-teal); }
-.row .desc .op{ color: var(--ink-faint); font-size: 11px; }
+.row .desc .op{ color: var(--ink-faint); font-size: 14.3px; }
 .row .desc .tag{
   color: var(--ink-soft);
-  font-size: 11px;
+  font-size: 14.3px;
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
@@ -515,7 +515,7 @@ body{
   text-align: center;
   color: var(--ink-soft);
   font-family: var(--font-body);
-  font-size: 13.5px;
+  font-size: 17.6px;
 }
 
 .receipt-foot{
@@ -532,7 +532,7 @@ body{
   border-radius: var(--radius);
   color: var(--paper);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 15.6px;
   letter-spacing: 0.03em;
   cursor: pointer;
   transition: background .12s ease;
@@ -542,7 +542,7 @@ body{
 
 .receipt-total{
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: 16.9px;
   font-weight: 600;
   letter-spacing: 0.03em;
 }
@@ -552,7 +552,7 @@ body{
   text-align: center;
   padding: 14px;
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 13.7px;
   color: var(--ink-faint);
   letter-spacing: 0.04em;
 }
