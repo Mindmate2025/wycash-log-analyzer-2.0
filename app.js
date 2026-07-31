@@ -468,6 +468,30 @@
       }
     });
 
+    // Passo 4: tra chi resta ancora senza scontrino, se sullo STESSO tavolo c'è un
+    // preconto SUCCESSIVO (importo diverso, non una ristampa) che invece è stato
+    // regolarmente abbinato a uno scontrino, il primo preconto è stato quasi certamente
+    // SOSTITUITO — es. è stato rimosso un articolo (elimina riga) e ristampato il conto
+    // corretto poco dopo. Non è un'anomalia: lo segnaliamo come "sostituito", con
+    // riferimento al preconto corretto e, se trovato, all'articolo rimosso nel frattempo.
+    preconti.filter((p) => p.matchStatus === "orfano").forEach((p) => {
+      const table = tableNum(p.table);
+      const replacement = preconti.find((q) => q !== p
+        && (q.matchStatus === "diretto" || q.matchStatus === "diviso")
+        && tableNum(q.table) === table
+        && toMs(q) > toMs(p)
+        && toMs(q) - toMs(p) <= 30 * 60 * 1000);
+      if (replacement) {
+        const rimosse = events.filter((e) => e.type === "elimina_riga"
+          && e.date === p.date
+          && toMs(e) >= toMs(p) && toMs(e) <= toMs(replacement))
+          .map((e) => e.detail);
+        p.matchStatus = "sostituito";
+        p.replacedBy = replacement;
+        p.removedItems = rimosse;
+      }
+    });
+
     // Aggiorna il testo di dettaglio in base all'esito dell'abbinamento
     preconti.forEach((p) => {
       const base = `Tavolo: ${p.table || "?"} · Sala: ${p.sala || "?"} · Conto: ${p.conto || "?"}`;
@@ -478,6 +502,10 @@
         p.detail = `${base} · ✓ conto diviso in ${p.linkedScontrini.length} scontrini (${orari})`;
       } else if (p.matchStatus === "ristampa") {
         p.detail = `${base} · ↻ probabile ristampa dello stesso conto (${p.reprintOf.time.slice(0, 8)}), non un'anomalia`;
+      } else if (p.matchStatus === "sostituito") {
+        const articoli = p.removedItems && p.removedItems.length
+          ? ` (rimosso: ${p.removedItems.join(", ")})` : "";
+        p.detail = `${base} · ↻ sostituito da un preconto corretto delle ${p.replacedBy.time.slice(0, 8)} — € ${p.replacedBy.amount.toFixed(2).replace(".", ",")}${articoli} · ✓ scontrino delle ${p.replacedBy.linkedScontrini[0].time.slice(0, 8)}`;
       } else {
         p.orphan = true;
         p.detail = `⚠ NESSUNO SCONTRINO ASSOCIATO — ${base}`;
@@ -880,7 +908,7 @@
       const label = TYPE_DEFS[e.type].label;
       const importo = (typeof e.amount === "number" && !isNaN(e.amount)) ? e.amount.toFixed(2).replace(".", ",") : "";
       const abbinamento = (e.type === "preconto_sospeso" || e.type === "movimento_gestionale")
-        ? (e.matchStatus === "diretto" ? "Abbinato" : e.matchStatus === "diviso" ? "Abbinato (conto diviso)" : e.matchStatus === "ristampa" ? "Probabile ristampa" : "NON ABBINATO")
+        ? (e.matchStatus === "diretto" ? "Abbinato" : e.matchStatus === "diviso" ? "Abbinato (conto diviso)" : e.matchStatus === "ristampa" ? "Probabile ristampa" : e.matchStatus === "sostituito" ? "Sostituito da preconto corretto" : "NON ABBINATO")
         : "";
       lines.push([e.date, e.time, e.operator, label, importo, e.table || "", e.sala || "", e.conto || "", abbinamento, e.detail]
         .map((v) => `"${String(v).replace(/"/g, '""')}"`)
