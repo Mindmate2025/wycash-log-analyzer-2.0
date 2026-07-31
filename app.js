@@ -668,25 +668,50 @@
       const byDay = {};
       filtered.forEach((e) => { (byDay[e.date] = byDay[e.date] || []).push(e); });
 
+      const renderRow = (e) => {
+        const def = TYPE_DEFS[e.type];
+        const amountTxt = (typeof e.amount === "number" && !isNaN(e.amount))
+          ? `<b class="amount">€ ${e.amount.toFixed(2).replace(".", ",")}</b> — `
+          : "";
+        return `
+          <div class="row${e.orphan ? " row-orphan" : ""}">
+            <span class="time">${e.time.slice(0, 8)}</span>
+            <span class="dot" style="background:${def.color}"></span>
+            <span class="desc">
+              <b>${def.label}</b> — ${amountTxt}${escapeHtml(e.detail)}
+              ${e.operator ? `<span class="op">· ${escapeHtml(e.operator)}</span>` : ""}
+            </span>
+          </div>`;
+      };
+
       resultsList.innerHTML = Object.keys(byDay).sort().map((date) => {
-        const rows = byDay[date].map((e) => {
-          const def = TYPE_DEFS[e.type];
-          const amountTxt = (typeof e.amount === "number" && !isNaN(e.amount))
-            ? `<b class="amount">€ ${e.amount.toFixed(2).replace(".", ",")}</b> — `
-            : "";
-          return `
-            <div class="row${e.orphan ? " row-orphan" : ""}">
-              <span class="time">${e.time.slice(0, 8)}</span>
-              <span class="dot" style="background:${def.color}"></span>
-              <span class="desc">
-                <b>${def.label}</b> — ${amountTxt}${escapeHtml(e.detail)}
-                ${e.operator ? `<span class="op">· ${escapeHtml(e.operator)}</span>` : ""}
-              </span>
-            </div>`;
-        }).join("");
+        const dayEvents = byDay[date];
+        let rows = "";
+        let i = 0;
+        while (i < dayEvents.length) {
+          const e = dayEvents[i];
+          // Se un preconto/movimento gestionale abbinato è seguito, senza nulla in mezzo,
+          // esattamente dal/dai suoi scontrini collegati, li racchiudo in un unico riquadro
+          // evidenziato — così l'abbinamento si vede a colpo d'occhio.
+          const linked = (e.type === "preconto_sospeso" || e.type === "movimento_gestionale")
+            && (e.matchStatus === "diretto" || e.matchStatus === "diviso")
+            && e.linkedScontrini;
+          if (linked) {
+            const need = e.linkedScontrini.length;
+            const next = dayEvents.slice(i + 1, i + 1 + need);
+            const isAdjacentMatch = next.length === need && next.every((s, idx) => s === e.linkedScontrini[idx]);
+            if (isAdjacentMatch) {
+              rows += `<div class="row-group">${[e, ...next].map(renderRow).join("")}</div>`;
+              i += 1 + need;
+              continue;
+            }
+          }
+          rows += renderRow(e);
+          i += 1;
+        }
         return `
           <div class="day-group">
-            <div class="day-heading">${formatDateIt(date)} <span class="n">${byDay[date].length} operazioni</span></div>
+            <div class="day-heading">${formatDateIt(date)} <span class="n">${dayEvents.length} operazioni</span></div>
             ${rows}
           </div>`;
       }).join("");
