@@ -381,6 +381,16 @@ body{
   padding-left: 6px !important;
 }
 
+.row-group{
+  border: 1.5px solid #2A5DAA;
+  border-radius: var(--radius);
+  background: rgba(42,93,170,0.04);
+  padding: 4px 6px;
+  margin: 3px 0;
+}
+.row-group .row{ padding: 4px; }
+.row-group .row:hover{ background: rgba(42,93,170,0.07); }
+
 /* ============================== TAB / PANORAMICA ============================== */
 .tab-nav{
   display: flex;
