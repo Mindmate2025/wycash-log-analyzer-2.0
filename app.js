@@ -944,13 +944,21 @@
     const sumAmt = (arr) => arr.reduce((s, e) => s + (e.amount || 0), 0);
 
     averagesTitle.textContent = `Medie giornaliere nel periodo (${nGiorni} giorni)`;
+    const totaleIncassato = sumAmt(scontriniBanco) + sumAmt(scontriniTavoli);
+    const totaleScontrini = scontriniBanco.length + scontriniTavoli.length;
+    const scontrinoMedio = totaleScontrini > 0 ? totaleIncassato / totaleScontrini : 0;
+    const spesaMediaPersona = coperiQty > 0 ? sumAmt(scontriniTavoli) / coperiQty : 0;
+
     const avgCards = [
       { label: "Scontrini Banco — media/giorno (n.)", value: (scontriniBanco.length / nGiorni).toFixed(1) },
       { label: "Scontrini Banco — media/giorno (€)", value: eur(sumAmt(scontriniBanco) / nGiorni) },
       { label: "Scontrini Tavoli — media/giorno (n.)", value: (scontriniTavoli.length / nGiorni).toFixed(1) },
       { label: "Scontrini Tavoli — media/giorno (€)", value: eur(sumAmt(scontriniTavoli) / nGiorni) },
       { label: "Coperti — media/giorno (n.)", value: (coperiQty / nGiorni).toFixed(1) },
-      { label: "Coperti — media/giorno (€)", value: eur(coperiImporto / nGiorni) }
+      { label: "Coperti — media/giorno (€)", value: eur(coperiImporto / nGiorni) },
+      { label: "Incasso medio totale (al giorno)", value: eur(totaleIncassato / nGiorni) },
+      { label: "Scontrino medio (banco + tavoli)", value: eur(scontrinoMedio) },
+      { label: "Spesa media a persona (tavoli ÷ coperti)", value: eur(spesaMediaPersona) }
     ];
     averagesGrid.innerHTML = avgCards.map((c) => `
       <div class="stat-card">
