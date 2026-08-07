@@ -127,6 +127,11 @@
   // Riga articolo "coperto" dentro il blocco scontrino fiscale (comando 3/S/...)
   const COPERTO_RE = /SENT COMMAND 3\/S\/COPERTO\/\/([\d.]+)\/([\d.]+)/;
 
+  // Riga articolo GENERICA dentro il blocco scontrino fiscale (comando 3/S/...):
+  // cattura qualunque nome prodotto in quella posizione, non solo "COPERTO".
+  // Aggiunto in v3.1 per estrarre il dettaglio vendite per prodotto (v2/v3 lo ignoravano).
+  const ARTICLE_RE = /SENT COMMAND 3\/S\/([^\/]+)\/\/([\d.]+)\/([\d.]+)/;
+
   const LINE_RE = /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}\.\d{3});([^;]*);\s?(.*)$/;
 
   // ---------------------------------------------------------
@@ -158,6 +163,7 @@
   const receiptRange  = document.getElementById("receiptRange");
   const totalCount    = document.getElementById("totalCount");
   const exportBtn     = document.getElementById("exportBtn");
+  const exportJsonBtn = document.getElementById("exportJsonBtn");
   const tabBtnPanoramica = document.getElementById("tabBtnPanoramica");
   const tabBtnDettagli   = document.getElementById("tabBtnDettagli");
   const panoramicaPanel  = document.getElementById("panoramicaPanel");
@@ -231,6 +237,7 @@
     let openPreconto = null;     // blocco preconto in costruzione: { date, time, table, sala, conto, total }
     let pendingTable = null;     // tavolo/sala letti sullo scontrino fiscale in chiusura: { table, sala }
     let pendingCoperti = null;   // coperti letti nello scontrino in chiusura: { qty, amount }
+    let pendingItems = [];       // righe prodotto lette nello scontrino in costruzione: [{ name, qty, unitPrice, amount }]
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
@@ -309,6 +316,16 @@
         pendingCoperti = { qty, amount: qty * prezzo };
       }
 
+      // Qualunque riga articolo dello scontrino (incluso il coperto stesso, che quindi
+      // compare sia qui che nel conteggio dedicato pendingCoperti sopra).
+      const art = ARTICLE_RE.exec(rest);
+      if (art) {
+        const name = art[1].trim();
+        const qty = parseFloat(art[2]);
+        const unitPrice = parseFloat(art[3]);
+        if (name) pendingItems.push({ name, qty, unitPrice, amount: qty * unitPrice });
+      }
+
       // Chiusura di uno scontrino fiscale verso la stampante (comando X/ dopo W/)
       // NB: case-sensitive di proposito — il comando minuscolo "x/" è un comando diverso
       if (/SENT COMMAND X\//.test(rest)) {
@@ -330,6 +347,7 @@
           amount,
           table: pendingTable ? pendingTable.table : null,
           sala: pendingTable ? pendingTable.sala : null,
+          items: pendingItems,
           detail: methodLabel
             ? `Pagamento: ${methodLabel}${pendingTable ? ` · Tavolo: ${pendingTable.table} · Sala: ${pendingTable.sala}` : ""}`
             : "Metodo di pagamento non determinato"
@@ -348,6 +366,7 @@
         pendingPayment = null;
         pendingTable = null;
         pendingCoperti = null;
+        pendingItems = [];
         lastPayment = null;
         continue;
       }
@@ -756,6 +775,7 @@
     totalCount.textContent = `${filtered.length.toLocaleString("it-IT")} righe${incassatoTxt}`;
     exportBtn.disabled = filtered.length === 0;
     exportBtn.onclick = () => exportCsv(filtered);
+    exportJsonBtn.onclick = () => exportJson(filtered);
   }
 
   // ---------------------------------------------------------
@@ -1019,6 +1039,41 @@
     const a = document.createElement("a");
     a.href = url;
     a.download = `wycash-report-${dateFrom.value || "tutti"}_${dateTo.value || "tutti"}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // ---------------------------------------------------------
+  // EXPORT JSON — vendite per prodotto (dettaglio riga per riga)
+  // Pensato come formato "ponte" verso altri strumenti (es. gestionali
+  // che vogliono calcolare margini/prezzi per prodotto), non solo per
+  // consultazione: un array di scontrini, ognuno con il proprio elenco
+  // di righe prodotto (nome/quantità/prezzo unitario/importo).
+  // ---------------------------------------------------------
+  function exportJson(rows) {
+    const receipts = rows
+      .filter((e) => e.type.startsWith("scontrino_") && Array.isArray(e.items) && e.items.length > 0)
+      .map((e) => ({
+        date: e.date,
+        time: e.time,
+        payment: e.type === "scontrino_contanti" ? "contanti"
+               : e.type === "scontrino_elettronico" ? "elettronico" : "altro",
+        amount: e.amount,
+        table: e.table || null,
+        sala: e.sala || null,
+        items: e.items.map((it) => ({
+          name: it.name,
+          qty: it.qty,
+          unitPrice: it.unitPrice,
+          amount: it.amount
+        }))
+      }));
+
+    const blob = new Blob([JSON.stringify(receipts, null, 2)], { type: "application/json;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `wycash-vendite-prodotto-${dateFrom.value || "tutti"}_${dateTo.value || "tutti"}.json`;
     a.click();
     URL.revokeObjectURL(url);
   }
