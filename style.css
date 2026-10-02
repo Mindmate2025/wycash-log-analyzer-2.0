@@ -233,6 +233,23 @@ body{
 }
 .check-item.disabled{ opacity: 0.35; cursor: not-allowed; }
 
+.btn-toggle-altri{
+  margin-top: 8px;
+  width: 100%;
+  padding: 7px;
+  background: transparent;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  color: var(--ink-soft);
+  font-family: var(--font-mono);
+  font-size: 14.3px;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  text-align: left;
+}
+.btn-toggle-altri:hover{ border-color: var(--ink-faint); color: var(--ink); }
+.check-grid-altri{ margin-top: 8px; }
+
 .text-input{
   width: 100%;
   padding: 9px 10px;
@@ -441,11 +458,24 @@ body{
   font-weight: 600;
   color: var(--ink);
 }
+.stat-card .stat-value.stat-value-sm{ font-size: 20px; }
 .stat-card .stat-sub{
   font-family: var(--font-mono);
   font-size: 14.3px;
   color: var(--ink-soft);
   margin-top: 2px;
+}
+.stat-card-warn{
+  border-color: var(--stamp-red);
+  background: rgba(163,35,28,0.05);
+}
+.stat-card-warn .stat-value{ color: var(--stamp-red); }
+
+.chart-note{
+  font-family: var(--font-body);
+  font-size: 15px;
+  color: var(--ink-soft);
+  margin: -12px 0 18px;
 }
 
 .chart-block{

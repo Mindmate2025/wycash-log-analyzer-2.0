@@ -127,11 +127,6 @@
   // Riga articolo "coperto" dentro il blocco scontrino fiscale (comando 3/S/...)
   const COPERTO_RE = /SENT COMMAND 3\/S\/COPERTO\/\/([\d.]+)\/([\d.]+)/;
 
-  // Riga articolo GENERICA dentro il blocco scontrino fiscale (comando 3/S/...):
-  // cattura qualunque nome prodotto in quella posizione, non solo "COPERTO".
-  // Aggiunto in v3.1 per estrarre il dettaglio vendite per prodotto (v2/v3 lo ignoravano).
-  const ARTICLE_RE = /SENT COMMAND 3\/S\/([^\/]+)\/\/([\d.]+)\/([\d.]+)/;
-
   const LINE_RE = /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}\.\d{3});([^;]*);\s?(.*)$/;
 
   // ---------------------------------------------------------
@@ -163,30 +158,39 @@
   const receiptRange  = document.getElementById("receiptRange");
   const totalCount    = document.getElementById("totalCount");
   const exportBtn     = document.getElementById("exportBtn");
-  const exportJsonBtn = document.getElementById("exportJsonBtn");
-  const tabBtnPanoramica = document.getElementById("tabBtnPanoramica");
-  const tabBtnDettagli   = document.getElementById("tabBtnDettagli");
-  const panoramicaPanel  = document.getElementById("panoramicaPanel");
-  const dettagliPanel    = document.getElementById("dettagliPanel");
   const statsGrid        = document.getElementById("statsGrid");
   const matchStatsTitle   = document.getElementById("matchStatsTitle");
   const matchStatsGrid    = document.getElementById("matchStatsGrid");
+  const matchStatsNote    = document.getElementById("matchStatsNote");
   const averagesTitle     = document.getElementById("averagesTitle");
   const averagesGrid      = document.getElementById("averagesGrid");
   const chartsContainer  = document.getElementById("chartsContainer");
+  const altriFiltriToggle = document.getElementById("altriFiltriToggle");
+  const altriFiltriBlock  = document.getElementById("altriFiltriBlock");
 
   // ---------------------------------------------------------
-  // TAB Panoramica / Dettagli
+  // TAB: Panoramica / Grafici / Dettagli (generico, via data-tab)
   // ---------------------------------------------------------
-  [tabBtnPanoramica, tabBtnDettagli].forEach((btn) => {
+  const tabButtons = document.querySelectorAll(".tab-btn");
+  const tabPanels  = document.querySelectorAll(".tab-panel");
+  tabButtons.forEach((btn) => {
     btn.addEventListener("click", () => {
-      const isPanoramica = btn === tabBtnPanoramica;
-      tabBtnPanoramica.classList.toggle("active", isPanoramica);
-      tabBtnDettagli.classList.toggle("active", !isPanoramica);
-      panoramicaPanel.hidden = !isPanoramica;
-      dettagliPanel.hidden = isPanoramica;
+      const target = btn.dataset.tab;
+      tabButtons.forEach((b) => b.classList.toggle("active", b === btn));
+      tabPanels.forEach((p) => { p.hidden = p.dataset.tab !== target; });
     });
   });
+
+  // ---------------------------------------------------------
+  // "Altri filtri" — sezione secondaria dei tipi meno usati, chiusa di default
+  // ---------------------------------------------------------
+  if (altriFiltriToggle) {
+    altriFiltriToggle.addEventListener("click", () => {
+      const isOpen = altriFiltriBlock.hidden === false;
+      altriFiltriBlock.hidden = isOpen;
+      altriFiltriToggle.textContent = isOpen ? "+ Altri filtri" : "− Altri filtri";
+    });
+  }
 
   // ---------------------------------------------------------
   // CARICAMENTO FILE
@@ -237,7 +241,6 @@
     let openPreconto = null;     // blocco preconto in costruzione: { date, time, table, sala, conto, total }
     let pendingTable = null;     // tavolo/sala letti sullo scontrino fiscale in chiusura: { table, sala }
     let pendingCoperti = null;   // coperti letti nello scontrino in chiusura: { qty, amount }
-    let pendingItems = [];       // righe prodotto lette nello scontrino in costruzione: [{ name, qty, unitPrice, amount }]
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
@@ -316,16 +319,6 @@
         pendingCoperti = { qty, amount: qty * prezzo };
       }
 
-      // Qualunque riga articolo dello scontrino (incluso il coperto stesso, che quindi
-      // compare sia qui che nel conteggio dedicato pendingCoperti sopra).
-      const art = ARTICLE_RE.exec(rest);
-      if (art) {
-        const name = art[1].trim();
-        const qty = parseFloat(art[2]);
-        const unitPrice = parseFloat(art[3]);
-        if (name) pendingItems.push({ name, qty, unitPrice, amount: qty * unitPrice });
-      }
-
       // Chiusura di uno scontrino fiscale verso la stampante (comando X/ dopo W/)
       // NB: case-sensitive di proposito — il comando minuscolo "x/" è un comando diverso
       if (/SENT COMMAND X\//.test(rest)) {
@@ -347,7 +340,6 @@
           amount,
           table: pendingTable ? pendingTable.table : null,
           sala: pendingTable ? pendingTable.sala : null,
-          items: pendingItems,
           detail: methodLabel
             ? `Pagamento: ${methodLabel}${pendingTable ? ` · Tavolo: ${pendingTable.table} · Sala: ${pendingTable.sala}` : ""}`
             : "Metodo di pagamento non determinato"
@@ -366,7 +358,6 @@
         pendingPayment = null;
         pendingTable = null;
         pendingCoperti = null;
-        pendingItems = [];
         lastPayment = null;
         continue;
       }
@@ -443,7 +434,13 @@
         if (toMs(s) < toMs(p)) return;
         if (Math.abs(s.amount - p.amount) > 0.05) return;
         const sameTable = p.table && s.table && tableNum(p.table) === s.table;
-        const score = (sameTable ? 0 : 1000) + (toMs(s) - toMs(p));
+        // NB: la penalità per "tavolo diverso" deve essere MOLTO più grande di qualunque
+        // differenza di tempo plausibile tra preconto e scontrino (anche ore), altrimenti
+        // un abbinamento sul tavolo sbagliato ma vicinissimo nel tempo può "rubare" lo
+        // scontrino corretto a un preconto sullo stesso tavolo di pochi minuti più lontano.
+        // (bug riscontrato: TAV 18 del 04/07, scontrino rubato da un preconto coincidente
+        // per importo sul TAV 13). 1e9 ms ≈ 11 giorni: nessuna coppia reale lo raggiunge.
+        const score = (sameTable ? 0 : 1e9) + (toMs(s) - toMs(p));
         candidatePairs.push({ pidx, sidx, score });
       });
     });
@@ -505,19 +502,35 @@
     // SOSTITUITO — es. è stato rimosso un articolo (elimina riga) e ristampato il conto
     // corretto poco dopo. Non è un'anomalia: lo segnaliamo come "sostituito", con
     // riferimento al preconto corretto e, se trovato, all'articolo rimosso nel frattempo.
+    //
+    // La finestra è di 4 ore: oltre questo intervallo il preconto successivo è quasi
+    // certamente un servizio/conto diverso (es. pranzo vs cena) e NON va collegato — lo
+    // lasciamo correttamente "orfano". Entro le 4 ore distinguiamo due casi via
+    // matchStatus/detail: una correzione rapida (<=30 min, es. articolo tolto appena
+    // prima della stampa definitiva) da un conto rimasto aperto più a lungo e chiuso con
+    // un importo diverso (il cliente ha continuato a consumare, o un articolo è stato
+    // tolto molto dopo la prima stampa del preconto) — quest'ultimo caso è segnalato come
+    // "evoluto" per non far credere erroneamente che sia stata trovata una correzione
+    // puntuale, quando in realtà è solo lo stesso conto proseguito nel tempo.
+    const FINESTRA_SOSTITUZIONE_MS = 4 * 60 * 60 * 1000;
+    const FINESTRA_CORREZIONE_RAPIDA_MS = 30 * 60 * 1000;
     preconti.filter((p) => p.matchStatus === "orfano").forEach((p) => {
       const table = tableNum(p.table);
-      const replacement = preconti.find((q) => q !== p
-        && (q.matchStatus === "diretto" || q.matchStatus === "diviso")
-        && tableNum(q.table) === table
-        && toMs(q) > toMs(p)
-        && toMs(q) - toMs(p) <= 30 * 60 * 1000);
+      // Tra i possibili candidati nella finestra, prendo il più vicino nel tempo.
+      const replacement = preconti
+        .filter((q) => q !== p
+          && (q.matchStatus === "diretto" || q.matchStatus === "diviso")
+          && tableNum(q.table) === table
+          && toMs(q) > toMs(p)
+          && toMs(q) - toMs(p) <= FINESTRA_SOSTITUZIONE_MS)
+        .sort((a, b) => toMs(a) - toMs(b))[0];
       if (replacement) {
+        const gapMs = toMs(replacement) - toMs(p);
         const rimosse = events.filter((e) => e.type === "elimina_riga"
           && e.date === p.date
           && toMs(e) >= toMs(p) && toMs(e) <= toMs(replacement))
           .map((e) => e.detail);
-        p.matchStatus = "sostituito";
+        p.matchStatus = gapMs <= FINESTRA_CORREZIONE_RAPIDA_MS ? "sostituito" : "evoluto";
         p.replacedBy = replacement;
         p.removedItems = rimosse;
       }
@@ -537,6 +550,16 @@
         const articoli = p.removedItems && p.removedItems.length
           ? ` (rimosso: ${p.removedItems.join(", ")})` : "";
         p.detail = `${base} · ↻ sostituito da un preconto corretto delle ${p.replacedBy.time.slice(0, 8)} — € ${p.replacedBy.amount.toFixed(2).replace(".", ",")}${articoli} · ✓ scontrino delle ${p.replacedBy.linkedScontrini[0].time.slice(0, 8)}`;
+      } else if (p.matchStatus === "evoluto") {
+        const articoli = p.removedItems && p.removedItems.length
+          ? ` (rimosso nel frattempo: ${p.removedItems.join(", ")})` : "";
+        p.detail = `${base} · ↻ conto rimasto aperto, chiuso più tardi (${p.replacedBy.time.slice(0, 8)}) con importo diverso — € ${p.replacedBy.amount.toFixed(2).replace(".", ",")}${articoli} · ✓ scontrino delle ${p.replacedBy.linkedScontrini[0].time.slice(0, 8)}`;
+      } else if (p.matchStatus === "no-amount") {
+        // Blocco di stampa incompleto nel log (es. file troncato a metà stampa):
+        // non è un vero "conto senza scontrino", è un dato mancante. Lo segnaliamo
+        // in modo distinto per non confonderlo con un'anomalia reale.
+        p.incompleteData = true;
+        p.detail = `ⓘ Dati incompleti nel log (importo non rilevato) — ${base}`;
       } else {
         p.orphan = true;
         p.detail = `⚠ NESSUNO SCONTRINO ASSOCIATO — ${base}`;
@@ -556,8 +579,13 @@
     });
   }
 
+  // Tipi meno usati / più tecnici: raggruppati sotto "Altri filtri" (chiuso di default)
+  // per non affollare il pannello principale con voci poco chiare per un uso quotidiano.
+  const SECONDARY_TYPES = new Set(["modifica_riga", "scontrino_altro", "possibile_annullo", "login"]);
+
   function buildTypeChecks() {
     typeChecks.innerHTML = "";
+    if (altriFiltriBlock) altriFiltriBlock.innerHTML = "";
     const counts = {};
     allEvents.forEach((e) => { counts[e.type] = (counts[e.type] || 0) + 1; });
 
@@ -572,10 +600,11 @@
         <span>${def.label}</span>
         <span class="count">${n}</span>
       `;
-      typeChecks.appendChild(label);
+      const target = (SECONDARY_TYPES.has(key) && altriFiltriBlock) ? altriFiltriBlock : typeChecks;
+      target.appendChild(label);
     });
 
-    typeChecks.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
+    document.querySelectorAll('#typeChecks input[type="checkbox"], #altriFiltriBlock input[type="checkbox"]').forEach((cb) => {
       cb.addEventListener("change", render);
     });
   }
@@ -594,22 +623,24 @@
     el.addEventListener("change", render);
   });
 
+  const ALL_TYPE_CHECKS_SEL = '#typeChecks input[type="checkbox"], #altriFiltriBlock input[type="checkbox"]';
+
   resetBtn.addEventListener("click", () => {
     applyDefaultDateRange();
     operatorSel.value = "";
     textSearch.value = "";
-    typeChecks.querySelectorAll('input[type="checkbox"]:not(:disabled)').forEach((cb) => (cb.checked = true));
+    document.querySelectorAll(ALL_TYPE_CHECKS_SEL + ':not(:disabled)').forEach((cb) => (cb.checked = true));
     render();
   });
 
   deselectAllBtn.addEventListener("click", () => {
-    typeChecks.querySelectorAll('input[type="checkbox"]:not(:disabled)').forEach((cb) => (cb.checked = false));
+    document.querySelectorAll(ALL_TYPE_CHECKS_SEL + ':not(:disabled)').forEach((cb) => (cb.checked = false));
     render();
   });
 
   function getActiveTypes() {
     const active = new Set();
-    typeChecks.querySelectorAll('input[type="checkbox"]:checked').forEach((cb) => active.add(cb.dataset.type));
+    document.querySelectorAll(ALL_TYPE_CHECKS_SEL + ':checked').forEach((cb) => active.add(cb.dataset.type));
     return active;
   }
 
@@ -644,7 +675,9 @@
 
   function render() {
     const filtered = getFiltered();
-    renderPanoramica(getOverviewFiltered());
+    const overview = getOverviewFiltered();
+    renderPanoramica(overview);
+    renderGrafici(overview);
 
     // --- intestazione periodo ---
     receiptRange.textContent = filtered.length
@@ -775,7 +808,6 @@
     totalCount.textContent = `${filtered.length.toLocaleString("it-IT")} righe${incassatoTxt}`;
     exportBtn.disabled = filtered.length === 0;
     exportBtn.onclick = () => exportCsv(filtered);
-    exportJsonBtn.onclick = () => exportJson(filtered);
   }
 
   // ---------------------------------------------------------
@@ -897,7 +929,54 @@
     </div>`;
   }
 
+  // ---------------------------------------------------------
+  // PANORAMICA — solo i numeri essenziali, a colpo d'occhio
+  // ---------------------------------------------------------
   function renderPanoramica(events) {
+    const nf = (n) => n.toLocaleString("it-IT");
+    const eur = (n) => `€ ${n.toFixed(2).replace(".", ",")}`;
+
+    const preconti = events.filter((e) => e.type === "preconto_sospeso");
+    const gestionali = events.filter((e) => e.type === "movimento_gestionale");
+    const contanti = events.filter((e) => e.type === "scontrino_contanti");
+    const elettronico = events.filter((e) => e.type === "scontrino_elettronico");
+    const coperti = events.filter((e) => e.type === "coperto");
+    const eliminaRiga = events.filter((e) => e.type === "elimina_riga");
+    const docAnnullo = events.filter((e) => e.type === "documento_annullo");
+    const senzaScontrino = preconti.concat(gestionali).filter((p) => p.orphan).length;
+
+    const incassatoContanti = contanti.reduce((s, e) => s + (e.amount || 0), 0);
+    const incassatoElettronico = elettronico.reduce((s, e) => s + (e.amount || 0), 0);
+    const coperiQty = coperti.reduce((s, e) => s + (e.qty || 0), 0);
+    const coperiImporto = coperti.reduce((s, e) => s + (e.amount || 0), 0);
+
+    const cards = [
+      { label: "Incasso totale", value: eur(incassatoContanti + incassatoElettronico), big: true },
+      { label: "Scontrini — Contanti", value: nf(contanti.length), sub: eur(incassatoContanti) },
+      { label: "Scontrini — Elettronico", value: nf(elettronico.length), sub: eur(incassatoElettronico) },
+      { label: "Coperti", value: nf(coperiQty), sub: eur(coperiImporto) },
+      { label: "Preconti sospesi", value: nf(preconti.length) },
+      { label: "Movimenti gestionali", value: nf(gestionali.length) },
+      { label: "Elimina riga", value: nf(eliminaRiga.length) },
+      { label: "Documenti di annullo", value: nf(docAnnullo.length) },
+      {
+        label: "Preconti senza scontrino",
+        value: nf(senzaScontrino),
+        warn: senzaScontrino > 0
+      }
+    ];
+    statsGrid.innerHTML = cards.map((c) => `
+      <div class="stat-card${c.warn ? " stat-card-warn" : ""}">
+        <div class="stat-label">${c.label}</div>
+        <div class="stat-value">${c.value}</div>
+        ${c.sub ? `<div class="stat-sub">${c.sub}</div>` : ""}
+      </div>`).join("");
+  }
+
+  // ---------------------------------------------------------
+  // GRAFICI — statistiche di dettaglio, medie e andamento nel tempo
+  // ---------------------------------------------------------
+  function renderGrafici(events) {
     const days = enumerateDays(events);
 
     const nf = (n) => n.toLocaleString("it-IT");
@@ -910,50 +989,35 @@
     const coperti = events.filter((e) => e.type === "coperto");
     const eliminaRiga = events.filter((e) => e.type === "elimina_riga");
     const docAnnullo = events.filter((e) => e.type === "documento_annullo");
-
-    const incassatoContanti = contanti.reduce((s, e) => s + (e.amount || 0), 0);
-    const incassatoElettronico = elettronico.reduce((s, e) => s + (e.amount || 0), 0);
     const coperiQty = coperti.reduce((s, e) => s + (e.qty || 0), 0);
     const coperiImporto = coperti.reduce((s, e) => s + (e.amount || 0), 0);
-
-    // --- KPI card ---
-    const cards = [
-      { label: "Preconti sospesi", value: nf(preconti.length) },
-      { label: "Movimenti gestionali", value: nf(gestionali.length) },
-      { label: "Scontrini totali", value: nf(contanti.length + elettronico.length), sub: eur(incassatoContanti + incassatoElettronico) },
-      { label: "— di cui contanti", value: nf(contanti.length), sub: eur(incassatoContanti) },
-      { label: "— di cui elettronico", value: nf(elettronico.length), sub: eur(incassatoElettronico) },
-      { label: "Coperti", value: nf(coperiQty), sub: eur(coperiImporto) },
-      { label: "Elimina riga", value: nf(eliminaRiga.length) },
-      { label: "Documenti di annullo", value: nf(docAnnullo.length) }
-    ];
-    statsGrid.innerHTML = cards.map((c) => `
-      <div class="stat-card">
-        <div class="stat-label">${c.label}</div>
-        <div class="stat-value">${c.value}</div>
-        ${c.sub ? `<div class="stat-sub">${c.sub}</div>` : ""}
-      </div>`).join("");
 
     // --- riepilogo abbinamento preconti/movimenti gestionali → scontrini ---
     const tuttiIPreconti = preconti.concat(gestionali);
     if (tuttiIPreconti.length > 0) {
-      matchStatsTitle.textContent = "Abbinamento preconti/movimenti gestionali → scontrini";
+      matchStatsTitle.textContent = "Come sono stati chiusi i preconti e i movimenti gestionali";
       const contaStato = (s) => tuttiIPreconti.filter((p) => p.matchStatus === s).length;
       const matchCards = [
-        { label: "✓ Abbinati direttamente", value: nf(contaStato("diretto")) },
-        { label: "✓ Conto diviso", value: nf(contaStato("diviso")) },
-        { label: "↻ Ristampe", value: nf(contaStato("ristampa")) },
-        { label: "↻ Sostituiti (corretti)", value: nf(contaStato("sostituito")) },
-        { label: "⚠ Realmente senza scontrino", value: nf(contaStato("orfano") + contaStato("no-amount")) }
+        { label: "✓ Chiusi subito con scontrino", value: nf(contaStato("diretto")) },
+        { label: "✓ Conto diviso in più scontrini", value: nf(contaStato("diviso")) },
+        { label: "↻ Conto ristampato (duplicato)", value: nf(contaStato("ristampa")) },
+        { label: "↻ Corretti poco dopo", value: nf(contaStato("sostituito")) },
+        { label: "↻ Conto rimasto aperto a lungo", value: nf(contaStato("evoluto")) },
+        { label: "⚠ Nessuno scontrino trovato", value: nf(contaStato("orfano")) }
       ];
       matchStatsGrid.innerHTML = matchCards.map((c) => `
         <div class="stat-card">
           <div class="stat-label">${c.label}</div>
           <div class="stat-value">${c.value}</div>
         </div>`).join("");
+      const incompleti = contaStato("no-amount");
+      matchStatsNote.textContent = incompleti > 0
+        ? `ⓘ ${nf(incompleti)} blocco/i di stampa incompleti nel log (importo non rilevato) — esclusi dal conteggio, non sono anomalie.`
+        : "";
     } else {
       matchStatsTitle.textContent = "";
       matchStatsGrid.innerHTML = "";
+      matchStatsNote.textContent = "";
     }
 
     // --- medie giornaliere: scontrini dal banco / dai tavoli, coperti ---
@@ -1028,7 +1092,12 @@
       const label = TYPE_DEFS[e.type].label;
       const importo = (typeof e.amount === "number" && !isNaN(e.amount)) ? e.amount.toFixed(2).replace(".", ",") : "";
       const abbinamento = (e.type === "preconto_sospeso" || e.type === "movimento_gestionale")
-        ? (e.matchStatus === "diretto" ? "Abbinato" : e.matchStatus === "diviso" ? "Abbinato (conto diviso)" : e.matchStatus === "ristampa" ? "Probabile ristampa" : e.matchStatus === "sostituito" ? "Sostituito da preconto corretto" : "NON ABBINATO")
+        ? (e.matchStatus === "diretto" ? "Abbinato"
+          : e.matchStatus === "diviso" ? "Abbinato (conto diviso)"
+          : e.matchStatus === "ristampa" ? "Probabile ristampa"
+          : e.matchStatus === "sostituito" ? "Sostituito da preconto corretto"
+          : e.matchStatus === "evoluto" ? "Conto proseguito/evoluto (chiuso più tardi)"
+          : "NON ABBINATO")
         : "";
       lines.push([e.date, e.time, e.operator, label, importo, e.table || "", e.sala || "", e.conto || "", abbinamento, e.detail]
         .map((v) => `"${String(v).replace(/"/g, '""')}"`)
@@ -1039,41 +1108,6 @@
     const a = document.createElement("a");
     a.href = url;
     a.download = `wycash-report-${dateFrom.value || "tutti"}_${dateTo.value || "tutti"}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  // ---------------------------------------------------------
-  // EXPORT JSON — vendite per prodotto (dettaglio riga per riga)
-  // Pensato come formato "ponte" verso altri strumenti (es. gestionali
-  // che vogliono calcolare margini/prezzi per prodotto), non solo per
-  // consultazione: un array di scontrini, ognuno con il proprio elenco
-  // di righe prodotto (nome/quantità/prezzo unitario/importo).
-  // ---------------------------------------------------------
-  function exportJson(rows) {
-    const receipts = rows
-      .filter((e) => e.type.startsWith("scontrino_") && Array.isArray(e.items) && e.items.length > 0)
-      .map((e) => ({
-        date: e.date,
-        time: e.time,
-        payment: e.type === "scontrino_contanti" ? "contanti"
-               : e.type === "scontrino_elettronico" ? "elettronico" : "altro",
-        amount: e.amount,
-        table: e.table || null,
-        sala: e.sala || null,
-        items: e.items.map((it) => ({
-          name: it.name,
-          qty: it.qty,
-          unitPrice: it.unitPrice,
-          amount: it.amount
-        }))
-      }));
-
-    const blob = new Blob([JSON.stringify(receipts, null, 2)], { type: "application/json;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `wycash-vendite-prodotto-${dateFrom.value || "tutti"}_${dateTo.value || "tutti"}.json`;
     a.click();
     URL.revokeObjectURL(url);
   }
